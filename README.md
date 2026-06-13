@@ -89,3 +89,4 @@ BACKEND-LEDGER/
     }
     ```
   - **Response**: Returns JWT token and sets it in the cookie.
+
