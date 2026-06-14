@@ -7,6 +7,12 @@ const accountController=require('../controllers/account.controller');
 
 router.post("/", authMiddleware, accountController.createAccount);
 
+/**
+ * =GET /api/accounts/
+ * Get all account of the logged-in user
+ * protected route
+ */
+router.get("/", authMiddleware, accountController.getUserAccountController);
 
 
 
