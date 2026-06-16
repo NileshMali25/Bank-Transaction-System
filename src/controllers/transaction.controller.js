@@ -75,6 +75,9 @@ async function createTransaction(req, res) {
             });
         }
 
+        let transaction;
+        try{
+
         session = await mongoose.startSession();
         session.startTransaction();
 
@@ -99,13 +102,14 @@ async function createTransaction(req, res) {
         }
 
         // Step 5: Create transaction (PENDING)
-        const transaction = new transactionModel({
+        const [createdTransaction] = await transactionModel.create([{
             fromAccount,
             toAccount,
             amount,
             idempotencyKey,
             status: "PENDING"
-        });
+        }], { session });
+        transaction = createdTransaction;
 
         // Step 6: Create debit ledger entry
         await ledgerModel.create([{
@@ -114,6 +118,10 @@ async function createTransaction(req, res) {
             transaction: transaction._id,
             type: "DEBIT"
         }], { session });
+
+        await (()=>{
+            return new Promise ((resolve) => setTimeout(resolve,15 * 1000))
+        })()
 
         // Step 7: Create credit ledger entry
         await ledgerModel.create([{
@@ -124,13 +132,26 @@ async function createTransaction(req, res) {
         }], { session });
 
         // Step 8: Mark transaction as COMPLETED
-        transaction.status = "COMPLETED";
-        await transaction.save({ session });
+        await transactionModel.findOneAndUpdate(
+            {_id:transaction._id},
+            {status:"COMPLETED"},
+            {session}
+        )
 
         // Step 9: Commit mongodb session
         await session.commitTransaction();
         session.endSession();
 
+    }catch(error){
+        if (session) {
+            await session.abortTransaction();
+            session.endSession();
+        }
+        return res.status(400).json({
+            message:"Transaction is pending due to some issue,please retry after some time",
+            status: "failed"
+        });
+    }
         // Step 10: Send email notification
         const senderUser = await userModel.findById(senderAccount.user);
         if (senderUser && senderUser.email) {

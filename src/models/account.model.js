@@ -1,4 +1,5 @@
 const mongoose=require('mongoose');
+const ledgerModel = require('./ledger.model');
 
 const accountSchema=new mongoose.Schema({
     user:{
@@ -30,7 +31,18 @@ const accountSchema=new mongoose.Schema({
 
 accountSchema.index({ user: 1, status: 1 });// Create a compound index on user and status fields
 
-
+accountSchema.methods.getBalance = async function() {
+    const ledgerEntries = await ledgerModel.find({ account: this._id });
+    let balance = 0;
+    for (const entry of ledgerEntries) {
+        if (entry.type === 'CREDIT') {
+            balance += entry.amount;
+        } else if (entry.type === 'DEBIT') {
+            balance -= entry.amount;
+        }
+    }
+    return balance;
+};
 
 const accountModel=mongoose.model('account', accountSchema);
 
